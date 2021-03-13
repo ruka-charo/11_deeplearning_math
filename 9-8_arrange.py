@@ -72,15 +72,14 @@ x, yt = x_train, y_train_one
 '''予測関数'''
 #softmax関数(9.7.3)
 def softmax(x):
-    x = x.T
     x_max = x.max(axis=0)
     x = x - x_max
     w = np.exp(x)
     return (w / w.sum(axis=0)).T
 
 #予測値の計算(9.7.1、9.7.2)
-def pred(x, W):
-    return softmax(x @ W)
+def pred(a, b):
+    return softmax(a @ b)
 
 
 '''評価'''
@@ -91,7 +90,7 @@ def cross_entropy(yt, yp):
 #モデル評価を行う関数
 def evaluate(x_test, y_test, y_test_one, W):
     #予測値の計算(確率値)
-    yp_test_one = pred(x_test, W)
+    yp_test_one = pred(W, x_test.T)
     #確率値から予測クラスを導出
     yp_test = np.argmax(yp_test_one, axis=1)
     #損失関数値の計算
@@ -125,11 +124,11 @@ history = np.zeros((0, 3))
 '''メイン処理'''
 for k in range(iters):
     # 予測値の計算 (9.7.1)　(9.7.2)
-    yp = pred(x, W)
+    yp = pred(W, x.T)
     # 誤差の計算 (9.7.4)
     yd = yp - yt
     # 重みの更新 (9.7.5)
-    W = W - alpha * (x.T @ yd) / M
+    W = W - alpha * (yd.T @ x) / M
 
     if (k % 10 == 0):
         loss, score = evaluate(x_test, y_test, y_test_one, W)
@@ -165,7 +164,7 @@ x1 = np.linspace(4, 8.5, 100)
 x2 = np.linspace(0.5, 7.5, 100)
 xx1, xx2 = np.meshgrid(x1, x2)
 xxx = np.array([np.ones(xx1.ravel().shape), xx1.ravel(), xx2.ravel()]).T
-pp = pred(xxx, W)
+pp = pred(W, xxx.T)
 c0 = pp[:,0].reshape(xx1.shape)
 c1 = pp[:,1].reshape(xx1.shape)
 c2 = pp[:,2].reshape(xx1.shape)
@@ -186,7 +185,7 @@ ax.view_init(elev=40, azim=70)
 
 #評価
 #テストデータで予測値の計算
-yp_test_one = pred(x_test, W)
+yp_test_one = pred(W, x_test.T)
 yp_test = np.argmax(yp_test_one, axis=1)
 
 #精度の計算
@@ -196,81 +195,3 @@ print('accuracy: %f' % score)
 #混合行列の表示
 print(confusion_matrix(y_test, yp_test))
 print(classification_report(y_test, yp_test))
-
-
-'''入力変数を4次元に変更'''
-#ダミー変数を追加
-x_all2 = np.insert(x_org, 0, 1.0, axis=1)
-
-#学習データ、検証データに分析
-x_train2, x_test2, y_train, y_test, \
-y_train_one, y_test_one = train_test_split(x_all2, y_org, y_all_one,
-    train_size=75, test_size=75, random_state=123)
-print(x_train2.shape, x_test2.shape, y_train.shape,
-    y_test.shape, y_train_one.shape, y_test_one.shape)
-
-print('入力データ(x)')
-print(x_train2[:5,:])
-
-#学習対象の選択
-x, yt, x_test = x_train2, y_train_one, x_test2
-
-#初期化処理
-#標本数
-M = x.shape[0]
-#入力次元数(ダミー変数を含む)
-D = x.shape[1]
-#分類先クラス数
-N = yt.shape[1]
-
-#繰り返し回数
-iters = 10000
-
-#学習率
-alpha = 0.01
-
-#重み行列の初期設定(全て1)
-W = np.ones((D, N))
-
-#評価結果記録用
-history = np.zeros((0, 3))
-
-
-#メイン処理(4次元版)
-for k in range(iters):
-    #予測値の計算(9.7.1)
-    yp = pred(x, W)
-    #誤差の計算(9.7.4)
-    yd = yp - yt
-    #重みの更新(9.7.5)
-    W = W - alpha * (x.T @ yd) / M
-
-    if k % 10 == 0:
-        loss, score = evaluate(x_test, y_test, y_test_one, W)
-        history = np.vstack((history, np.array([k, loss, score])))
-        print('epoch = %d loss = %f score = %f' % (k, loss, score))
-
-print(history.shape)
-
-
-#損失関数値と精度の確認
-print('初期状態：損失関数：%f 精度：%f' % (history[0, 1], history[0, 2]))
-print('最終状態：損失関数：%f 精度：%f' % (history[-1, 1], history[-1, 2]))
-
-#学習曲線の表示(損失関数)
-plt.plot(history[:,0], history[:,1])
-plt.ylim(0, 1.2)
-plt.grid()
-plt.xlabel('iter', fontsize=14)
-plt.ylabel('loss', fontsize=14)
-plt.title('iter vs loss', fontsize=14)
-plt.show()
-
-# 学習曲線の表示 (精度)
-plt.plot(history[:,0], history[:,2])
-plt.ylim(0,1)
-plt.grid()
-plt.xlabel('iter', fontsize=14)
-plt.ylabel('accuracy', fontsize=14)
-plt.title('iter vs accuracy', fontsize=14)
-plt.show()

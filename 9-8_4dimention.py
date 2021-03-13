@@ -42,7 +42,7 @@ plt.show()
 
 '''データ前処理'''
 #ダミー変数を追加
-x_all = np.insert(x_select, 0, 1.0, axis=1)
+x_all2 = np.insert(x_org, 0, 1.0, axis=1)
 
 #yをOne-hot-Vectorにする。
 ohe = OneHotEncoder(sparse=False, categories='auto')
@@ -52,22 +52,22 @@ print('オリジナル', y_org.shape)
 print('2次元化', y_work.shape)
 print('One Hot Vector化後', y_all_one.shape)
 
-#学習データ、検証データに分割
-x_train, x_test, y_train, y_test, y_train_one, y_test_one = train_test_split(
-    x_all, y_org, y_all_one, train_size=75, test_size=75, random_state=123
-)
-print(x_train.shape, x_test.shape, y_train.shape, y_test.shape,
-    y_train_one.shape, y_test_one.shape)
+#学習データ、検証データに分析
+x_train2, x_test2, y_train, y_test, \
+y_train_one, y_test_one = train_test_split(x_all2, y_org, y_all_one,
+    train_size=75, test_size=75, random_state=123)
+print(x_train2.shape, x_test2.shape, y_train.shape,
+    y_test.shape, y_train_one.shape, y_test_one.shape)
 
 print('入力データ(x)')
-print(x_train[:5,:])
+print(x_train2[:5,:])
 print('正解データ(y)')
 print(y_train[:5])
 print('正解データ(One Hot Vector化後)')
 print(y_train_one[:5,:])
 
 #学習対象の選択
-x, yt = x_train, y_train_one
+x, yt, x_test = x_train2, y_train_one, x_test2
 
 '''予測関数'''
 #softmax関数(9.7.3)
@@ -102,119 +102,6 @@ def evaluate(x_test, y_test, y_test_one, W):
 
 
 '''初期化処理'''
-# 標本数
-M  = x.shape[0]
-# 入力次元数(ダミー変数を含む
-D = x.shape[1]
-# 分類先クラス数
-N = yt.shape[1]
-
-# 繰り返し回数
-iters = 10000
-
-# 学習率
-alpha = 0.01
-
-# 重み行列の初期設定(すべて1)
-W = np.ones((D, N))
-
-# 評価結果記録用
-history = np.zeros((0, 3))
-
-
-'''メイン処理'''
-for k in range(iters):
-    # 予測値の計算 (9.7.1)　(9.7.2)
-    yp = pred(x, W)
-    # 誤差の計算 (9.7.4)
-    yd = yp - yt
-    # 重みの更新 (9.7.5)
-    W = W - alpha * (x.T @ yd) / M
-
-    if (k % 10 == 0):
-        loss, score = evaluate(x_test, y_test, y_test_one, W)
-        history = np.vstack((history,np.array([k, loss, score])))
-        print("epoch = %d loss = %f score = %f" % (k, loss, score))
-
-
-'''結果確認'''
-#損失関数値と精度の確認
-print('初期状態: 損失関数:%f 精度:%f' % (history[0,1], history[0,2]))
-print('最終状態: 損失関数:%f 精度:%f' % (history[-1,1], history[-1,2]))
-
-#学習曲線の表示(損失関数)
-plt.plot(history[:,0], history[:,1])
-plt.grid()
-plt.ylim(0, 1.2)
-plt.xlabel('iter', fontsize=14)
-plt.ylabel('loss', fontsize=14)
-plt.title('iter vs loss', fontsize=14)
-plt.show()
-
-#学習曲線の表示(精度)
-plt.plot(history[:,0], history[:,2])
-plt.ylim(0,1)
-plt.grid()
-plt.xlabel('iter', fontsize=14)
-plt.ylabel('accuracy', fontsize=14)
-plt.title('iter vs accuracy', fontsize=14)
-plt.show()
-
-#3次元表示
-x1 = np.linspace(4, 8.5, 100)
-x2 = np.linspace(0.5, 7.5, 100)
-xx1, xx2 = np.meshgrid(x1, x2)
-xxx = np.array([np.ones(xx1.ravel().shape), xx1.ravel(), xx2.ravel()]).T
-pp = pred(xxx, W)
-c0 = pp[:,0].reshape(xx1.shape)
-c1 = pp[:,1].reshape(xx1.shape)
-c2 = pp[:,2].reshape(xx1.shape)
-plt.figure(figsize=(8,8))
-ax = plt.subplot(1, 1, 1, projection='3d')
-ax.plot_surface(xx1, xx2, c0, color='lightblue',
-    edgecolor='black', rstride=10, cstride=10, alpha=0.7)
-ax.plot_surface(xx1, xx2, c1, color='blue',
-    edgecolor='black', rstride=10, cstride=10, alpha=0.7)
-ax.plot_surface(xx1, xx2, c2, color='lightgrey',
-    edgecolor='black', rstride=10, cstride=10, alpha=0.7)
-ax.scatter(x_t0[:,0], x_t0[:,1], 1, s=50, alpha=1, marker='+', c='k')
-ax.scatter(x_t1[:,0], x_t1[:,1], 1, s=30, alpha=1, marker='o', c='k')
-ax.scatter(x_t2[:,0], x_t2[:,1], 1, s=50, alpha=1, marker='x', c='k')
-ax.set_xlim(4,8.5)
-ax.set_ylim(0.5,7.5)
-ax.view_init(elev=40, azim=70)
-
-#評価
-#テストデータで予測値の計算
-yp_test_one = pred(x_test, W)
-yp_test = np.argmax(yp_test_one, axis=1)
-
-#精度の計算
-score = accuracy_score(y_test, yp_test)
-print('accuracy: %f' % score)
-
-#混合行列の表示
-print(confusion_matrix(y_test, yp_test))
-print(classification_report(y_test, yp_test))
-
-
-'''入力変数を4次元に変更'''
-#ダミー変数を追加
-x_all2 = np.insert(x_org, 0, 1.0, axis=1)
-
-#学習データ、検証データに分析
-x_train2, x_test2, y_train, y_test, \
-y_train_one, y_test_one = train_test_split(x_all2, y_org, y_all_one,
-    train_size=75, test_size=75, random_state=123)
-print(x_train2.shape, x_test2.shape, y_train.shape,
-    y_test.shape, y_train_one.shape, y_test_one.shape)
-
-print('入力データ(x)')
-print(x_train2[:5,:])
-
-#学習対象の選択
-x, yt, x_test = x_train2, y_train_one, x_test2
-
 #初期化処理
 #標本数
 M = x.shape[0]
