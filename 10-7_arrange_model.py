@@ -59,11 +59,11 @@ def sigmoid(x):
 
 #softmax関数
 def softmax(x):
-    x = x.T
     x_max = x.max(axis=0)
     x = x - x_max
     w = np.exp(x)
     return (w / w.sum(axis=0)).T
+
 
 '''評価関数'''
 #交差エントロピー関数
@@ -72,8 +72,8 @@ def cross_entropy(yt, yp):
 
 #評価処理(戻り値は精度と損失関数)
 def evaluate(x_test, y_test, y_test_one, V, W):
-    b1_test = np.insert(sigmoid(x_test @ V), 0, 1, axis=1)
-    yp_test_one = softmax(b1_test @ W)
+    b1_test = np.insert(sigmoid(V @ x_test.T), 0, 1, axis=0)
+    yp_test_one = softmax(W.T @ b1_test)
     yp_test = np.argmax(yp_test_one, axis=1)
     loss = cross_entropy(y_test_one, yp_test_one)
     score = accuracy_score(y_test, yp_test)
@@ -140,7 +140,7 @@ B = batch_size
 alpha = 0.01
 
 #重み行列の初期設定(全て1)
-V = np.ones((D, H))
+V = np.ones((H, D))
 W = np.ones((H1, N))
 
 #評価結果記録用(損失関数値と精度)
@@ -152,7 +152,7 @@ indexes = Indexes(M, batch_size)
 #繰り返し回数カウンタ初期化
 epoch = 0
 
-
+print(yp.shape, yt.shape)
 '''メイン処理'''
 #メイン処理
 while epoch < nb_epoch:
@@ -161,19 +161,19 @@ while epoch < nb_epoch:
     x, yt = x_train[index], y_train_one[index]
 
     #予測値計算(順伝播)
-    a = x @ V
+    a = V @ x.T
     b = sigmoid(a)
-    b1 = np.insert(b, 0, 1, axis=1)
-    u = b1 @ W
+    b1 = np.insert(b, 0, 1, axis=0)
+    u = W.T @ b1
     yp = softmax(u)
 
     #誤差計算
     yd = yp - yt
-    bd = b * (1 - b) * (yd @ W[1:].T)
+    bd = b * (1 - b) * (yd @ W[1:].T).T
 
     #勾配計算
-    W = W - alpha * (b1.T @ yd) / B
-    V = V - alpha * (x.T @ bd) / B
+    W = W - alpha * (b1 @ yd) / B
+    V = V - alpha * (bd @ x) / B
 
     # ログ記録用
     if next_flag: # 1 epoch 終了後の処理
