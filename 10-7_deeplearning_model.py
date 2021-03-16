@@ -65,6 +65,33 @@ def softmax(x):
     w = np.exp(x)
     return (w / w.sum(axis=0)).T
 
+'''ReLU関数の導入'''
+#ReLU関数
+def ReLU(x):
+    return np.maximum(0, x)
+
+#step関数
+def step(x):
+    return 1.0 * (x > 0)
+
+# ReLU関数とstep関数のグラフ表示
+xx =  np.linspace(-4, 4, 501)
+yy = ReLU(xx)
+plt.figure(figsize=(6,6))
+#plt.ylim(0.0, 1.0)
+plt.xlim(-4, 4)
+plt.ylim(-4, 4)
+plt.xlabel(r'$x$', fontsize=14)
+plt.ylabel(r'$y$', fontsize=14)
+plt.grid(lw=2)
+plt.plot(xx, ReLU(xx), c='b', label='ReLU', linestyle='-', lw=3)
+plt.plot(xx, step(xx), c='k', label='step', linestyle='-.', lw=3)
+plt.xticks(size=14)
+plt.yticks(size=14)
+plt.legend(fontsize=14)
+plt.show()
+
+
 '''評価関数'''
 #交差エントロピー関数
 def cross_entropy(yt, yp):
@@ -72,7 +99,7 @@ def cross_entropy(yt, yp):
 
 #評価処理(戻り値は精度と損失関数)
 def evaluate(x_test, y_test, y_test_one, V, W):
-    b1_test = np.insert(sigmoid(x_test @ V), 0, 1, axis=1)
+    b1_test = np.insert(ReLU(x_test @ V), 0, 1, axis=1)
     yp_test_one = softmax(b1_test @ W)
     yp_test = np.argmax(yp_test_one, axis=1)
     loss = cross_entropy(y_test_one, yp_test_one)
@@ -139,9 +166,14 @@ B = batch_size
 #学習率
 alpha = 0.01
 
-#重み行列の初期設定(全て1)
-V = np.ones((D, H))
-W = np.ones((H1, N))
+#重み行列の初期設定
+#V = np.ones((D, H))
+#W = np.ones((H1, N))
+np.random.seed(123)
+V = np.random.randn(D, H) / np.sqrt(D / 2)
+W = np.random.randn(H1, N) / np.sqrt(H1 / 2)
+print(V[:2,:5])
+print(W[:2,:5])
 
 #評価結果記録用(損失関数値と精度)
 history1 = np.zeros((0, 3))
@@ -152,7 +184,6 @@ indexes = Indexes(M, batch_size)
 #繰り返し回数カウンタ初期化
 epoch = 0
 
-
 '''メイン処理'''
 #メイン処理
 while epoch < nb_epoch:
@@ -162,14 +193,14 @@ while epoch < nb_epoch:
 
     #予測値計算(順伝播)
     a = x @ V
-    b = sigmoid(a)
+    b = ReLU(a)
     b1 = np.insert(b, 0, 1, axis=1)
     u = b1 @ W
     yp = softmax(u)
 
     #誤差計算
     yd = yp - yt
-    bd = b * (1 - b) * (yd @ W[1:].T)
+    bd = step(a) * (yd @ W[1:].T)
 
     #勾配計算
     W = W - alpha * (b1.T @ yd) / B

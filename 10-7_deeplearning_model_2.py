@@ -59,6 +59,7 @@ def sigmoid(x):
 
 #softmax関数
 def softmax(x):
+    x = x.T
     x_max = x.max(axis=0)
     x = x - x_max
     w = np.exp(x)
@@ -97,9 +98,10 @@ def cross_entropy(yt, yp):
     return -np.mean(np.sum(yt * np.log(yp), axis=1))
 
 #評価処理(戻り値は精度と損失関数)
-def evaluate(x_test, y_test, y_test_one, V, W):
-    b1_test = np.insert(ReLU(V @ x_test.T), 0, 1, axis=0)
-    yp_test_one = softmax(W.T @ b1_test)
+def evaluate(x_test, y_test, y_test_one, U, V, W):
+    b1_test = np.insert(ReLU(x_test @ U), 0, 1, axis=1)
+    d1_test = np.insert(ReLU(b1_test @ V), 0, 1, axis=1)
+    yp_test_one = softmax(d1_test @ W)
     yp_test = np.argmax(yp_test_one, axis=1)
     loss = cross_entropy(y_test_one, yp_test_one)
     score = accuracy_score(y_test, yp_test)
@@ -165,14 +167,14 @@ B = batch_size
 #学習率
 alpha = 0.01
 
-#重み行列の初期設定(全て1)
-#V = np.ones((H, D))
+#重み行列の初期設定
+#V = np.ones((D, H))
 #W = np.ones((H1, N))
 np.random.seed(123)
-V = np.random.randn(H, D) / np.sqrt(D / 2)
+U = np.random.randn(D, H) / np.sqrt(D / 2)
+V = np.random.randn(H1, H) / np.sqrt(H1 / 2)
 W = np.random.randn(H1, N) / np.sqrt(H1 / 2)
-print(V[:2,:5])
-print(W[:2,:5])
+
 
 #評価結果記録用(損失関数値と精度)
 history1 = np.zeros((0, 3))
@@ -183,7 +185,6 @@ indexes = Indexes(M, batch_size)
 #繰り返し回数カウンタ初期化
 epoch = 0
 
-print(yp.shape, yt.shape)
 '''メイン処理'''
 #メイン処理
 while epoch < nb_epoch:
@@ -192,23 +193,28 @@ while epoch < nb_epoch:
     x, yt = x_train[index], y_train_one[index]
 
     #予測値計算(順伝播)
-    a = V @ x.T
+    a = x @ U
     b = ReLU(a)
-    b1 = np.insert(b, 0, 1, axis=0)
-    u = W.T @ b1
+    b1 = np.insert(b, 0, 1, axis=1)
+    c = b1 @ V
+    d = ReLU(c)
+    d1 = np.insert(d, 0, 1, axis=1)
+    u = d1 @ W
     yp = softmax(u)
 
     #誤差計算
     yd = yp - yt
-    bd = step(a) * (yd @ W[1:].T).T
+    dd = step(c) * (yd @ W[1:].T)
+    bd = step(a) * (dd @ V[1:].T)
 
     #勾配計算
-    W = W - alpha * (b1 @ yd) / B
-    V = V - alpha * (bd @ x) / B
+    W = W - alpha * (d1.T @ yd) / B
+    V = V - alpha * (b1.T @ dd) / B
+    U = U - alpha * (x.T @ bd) / B
 
     # ログ記録用
     if next_flag: # 1 epoch 終了後の処理
-        score, loss = evaluate(x_test, y_test, y_test_one, V, W)
+        score, loss = evaluate(x_test, y_test, y_test_one, U, V, W)
         history1 = np.vstack((history1, np.array([epoch, loss, score])))
         print("epoch = %d loss = %f score = %f" % (epoch, loss, score))
         epoch = epoch + 1
@@ -233,4 +239,30 @@ plt.ylim(0,1)
 plt.xticks(size=14)
 plt.yticks(size=14)
 plt.grid(lw=2)
+plt.show()
+
+
+#データの確認
+N = 20
+np.random.seed(12)
+indexes = np.random.choice(y_test.shape[0], N, replace=False)
+
+#x_orgの選択結果表示(白黒反転)
+x_selected = x_test[indexes]
+y_selected = y_test[indexes]
+
+#予測値の計算
+b1_test = np.insert(ReLU(x_selected @ U), 0, 1, axis=1)
+d1_test = np.insert(ReLU(b1_test @ V), 0, 1, axis=1)
+yp_test_one = softmax(d1_test @ W)
+yp_test = np.argmax(yp_test_one, axis=1)
+
+#グラフの表示
+plt.figure(figsize=(10, 3))
+for i in range(N):
+    ax = plt.subplot(2, N/2, i+1)
+    plt.imshow(x_selected[i, 1:].reshape(28, 28), cmap='gray_r')
+    ax.set_title('%d:%d' % (y_selected[i], yp_test[i]), fontsize=14)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
 plt.show()

@@ -97,9 +97,10 @@ def cross_entropy(yt, yp):
     return -np.mean(np.sum(yt * np.log(yp), axis=1))
 
 #評価処理(戻り値は精度と損失関数)
-def evaluate(x_test, y_test, y_test_one, V, W):
-    b1_test = np.insert(ReLU(V @ x_test.T), 0, 1, axis=0)
-    yp_test_one = softmax(W.T @ b1_test)
+def evaluate(x_test, y_test, y_test_one, U, V, W):
+    b1_test = np.insert(ReLU(U @ x_test.T), 0, 1, axis=0)
+    d1_test = np.insert(ReLU(V @ b1_test), 0, 1, axis=0)
+    yp_test_one = softmax(W.T @ d1_test)
     yp_test = np.argmax(yp_test_one, axis=1)
     loss = cross_entropy(y_test_one, yp_test_one)
     score = accuracy_score(y_test, yp_test)
@@ -169,10 +170,10 @@ alpha = 0.01
 #V = np.ones((H, D))
 #W = np.ones((H1, N))
 np.random.seed(123)
-V = np.random.randn(H, D) / np.sqrt(D / 2)
+U = np.random.randn(H, D) / np.sqrt(D / 2)
+V = np.random.randn(H, H1) / np.sqrt(H1 / 2)
 W = np.random.randn(H1, N) / np.sqrt(H1 / 2)
-print(V[:2,:5])
-print(W[:2,:5])
+
 
 #評価結果記録用(損失関数値と精度)
 history1 = np.zeros((0, 3))
@@ -183,7 +184,7 @@ indexes = Indexes(M, batch_size)
 #繰り返し回数カウンタ初期化
 epoch = 0
 
-print(yp.shape, yt.shape)
+
 '''メイン処理'''
 #メイン処理
 while epoch < nb_epoch:
@@ -192,23 +193,28 @@ while epoch < nb_epoch:
     x, yt = x_train[index], y_train_one[index]
 
     #予測値計算(順伝播)
-    a = V @ x.T
+    a = U @ x.T
     b = ReLU(a)
     b1 = np.insert(b, 0, 1, axis=0)
-    u = W.T @ b1
+    c = V @ b1
+    d = ReLU(c)
+    d1 = np.insert(d, 0, 1, axis=0)
+    u = W.T @ d1
     yp = softmax(u)
 
     #誤差計算
     yd = yp - yt
-    bd = step(a) * (yd @ W[1:].T).T
+    dd = step(c) * (yd @ W[1:].T).T
+    bd = step(a) * (V[:,1:].T @ dd)
 
     #勾配計算
-    W = W - alpha * (b1 @ yd) / B
-    V = V - alpha * (bd @ x) / B
+    W = W - alpha * (d1 @ yd) / B
+    V = V - alpha * (dd @ b1.T) / B
+    U = U - alpha * (bd @ x) / B
 
     # ログ記録用
     if next_flag: # 1 epoch 終了後の処理
-        score, loss = evaluate(x_test, y_test, y_test_one, V, W)
+        score, loss = evaluate(x_test, y_test, y_test_one, U, V, W)
         history1 = np.vstack((history1, np.array([epoch, loss, score])))
         print("epoch = %d loss = %f score = %f" % (epoch, loss, score))
         epoch = epoch + 1
